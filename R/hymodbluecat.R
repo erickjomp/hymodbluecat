@@ -2,27 +2,28 @@
 ### Hymod calibration
 ################################################################
 
-hymod.par=function(param.ini,area,tdelta,e,p,nstep=length(p),qoss,qinitial=0,lower=c(10,0.1,0,1,1),upper=c(400,10,0.9,1000,1000),itermax=100,control=list(factr=1e1,fnscale=0.01,parscale=c(100,1,1,1,1)),opt="DEoptim",lambdaln=0,plot=T)
+hymod.par=function(param.ini,area,tdelta,e,p,nstep=length(p),qoss,qinitial=0,indexrun = 1:length(p), lower=c(10,0.1,0,1,1),upper=c(400,10,0.9,1000,1000),itermax=100,control=list(factr=1e1,fnscale=0.01,parscale=c(100,1,1,1,1)),opt="DEoptim",lambdaln=0,plot=T)
 {
 #Choose between DEoptim and optim
 if (opt=="DEoptim")
   {cat("Launching optimisation with R function DEoptim - please wait for calibration to be completed", fill=T)
-  pr1=DEoptim(hymod.eff,lower=lower,upper=upper,control = DEoptim.control(itermax=itermax),args=list(area=area,tdelta=tdelta,e=e,p=p,qoss=qoss,qinitial=qinitial,nstep=nstep,lambdaln=lambdaln))} else
+  pr1=DEoptim(hymod.eff,lower=lower,upper=upper,control = DEoptim.control(itermax=itermax),args=list(area=area,tdelta=tdelta,e=e,p=p,qoss=qoss,qinitial=qinitial,indexrun=indexrun,nstep=nstep,lambdaln=lambdaln))} else
   {cat("Launching optimisation with R function optim - please wait for calibration to be completed", fill=T)
-  pr1=optim(param.ini,hymod.eff,method="L-BFGS-B",lower=lower,upper=upper,control=control,args=list(area=area,tdelta=tdelta,e=e,p=p,qoss=qoss,qinitial=qinitial,nstep=nstep,lambdaln=lambdaln))}
+  pr1=optim(param.ini,hymod.eff,method="L-BFGS-B",lower=lower,upper=upper,control=control,args=list(area=area,tdelta=tdelta,e=e,p=p,qoss=qoss,qinitial=qinitial,indexrun=indexrun,nstep=nstep,lambdaln=lambdaln))}
 if (opt=="DEoptim")
   bpar=pr1$optim$bestmem else bpar=pr1$par
   qsim=hymod.sim(bpar,area,tdelta,e,p,qinitial=qinitial)
-  pr1$qsim=qsim$q_tot
-  pr1$qoss=qoss
+  pr1$qsim=qsim$q_tot[indexrun]
+  pr1$qoss=qoss[indexrun]
   #Compute efficiency
-  eff=1-sum((pr1$qsim-pr1$qoss)^2)/sum((pr1$qoss-mean(pr1$qoss))^2)
+  eff=1-sum((pr1$qsim-pr1$qoss)^2, na.rm = T)/sum((pr1$qoss-mean(pr1$qoss, na.rm = T))^2, na.rm = T)
   pr1$eff=eff
   #Make scatterplot
   if (plot==T)
     {
     if(is.null(dev.list())==F) dev.off()
-    plot(pr1$qsim,pr1$qoss,xlim=c(0,max(cbind(pr1$qsim,pr1$qoss))),ylim=c(0,max(cbind(pr1$qsim,pr1$qoss))),xlab="Simulated data",ylab="Observed data",col="red")
+    plot(pr1$qsim,pr1$qoss,xlim=c(0,max(cbind(pr1$qsim,pr1$qoss), na.rm = T)),
+         ylim=c(0,max(cbind(pr1$qsim,pr1$qoss), na.rm = T)),xlab="Simulated data",ylab="Observed data",col="red")
     grid()
     abline(0,1,lwd=2)
     legend("topleft",legend=bquote(Efficiency== .(signif(eff,digit=2))),cex=1.3)
@@ -44,6 +45,7 @@ tdelta=args$tdelta
 e=args$e
 p=args$p
 qoss=args$qoss
+indexrun = args$indexrun
 qinitial=args$qinitial
 nstep=args$nstep
 lambdaln=args$lambdaln
@@ -65,13 +67,17 @@ qsimf<-.Fortran("hymodfortran",
                     qt1=as.double(p),
                     qtot=as.double(p),
                     PACKAGE="hymodbluecat")
+# subset run period (excluding warmup & other periods not included for calib)
+qsimf$qtot = qsimf$qtot[indexrun]
+qoss = qoss[indexrun]
 #Compute the efficiency                    
 qsimf$qtot[qsimf$qtot>(max(qoss)*2)]=max(qoss)*2
 if(lambdaln==0)
-  eff=-1+sum((qsimf$qtot-qoss)^2)/sum((qoss-mean(qoss))^2) else {
+  eff=-1+sum((qsimf$qtot-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T) 
+else {
   tqsim=lambdaln*log(1+qsimf$qtot/lambdaln)
   tqoss=lambdaln*log(1+qoss/lambdaln)
-  eff=-1+sum((tqsim-tqoss)^2)/sum((tqoss-mean(tqoss))^2)}
+  eff=-1+sum((tqsim-tqoss)^2, na.rm = T)/sum((tqoss-mean(tqoss, na.rm = T))^2, na.rm = T)}
 return(eff)
 }
 
@@ -377,8 +383,8 @@ if(bluecat==T && plot==T && nstep1>20 && is.null(qoss)==F)
   abline(0,1)
   grid()
   #Compute the efficiency of the simulation and put it in the plots
-  eff=1-sum((medpred-qoss)^2)/sum((qoss-mean(qoss))^2)
-  eff1=1-sum((qsimf$qtot-qoss)^2)/sum((qoss-mean(qoss))^2)
+  eff=1-sum((medpred-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
+  eff1=1-sum((qsimf$qtot-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
   legend("topleft",inset=0,legend=bquote("Efficiency S-model ="~.(signif(eff,digit=2))),cex=1.3)
   title("Scatterplot S-model predicted versus observed data")
   # Fourth plot
@@ -386,8 +392,8 @@ if(bluecat==T && plot==T && nstep1>20 && is.null(qoss)==F)
   abline(0,1)
   grid()
   #Compute the efficiency of the simulation and put it in the plots
-  eff=1-sum((medpred-qoss)^2)/sum((qoss-mean(qoss))^2)
-  eff1=1-sum((qsimf$qtot-qoss)^2)/sum((qoss-mean(qoss))^2)
+  eff=1-sum((medpred-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
+  eff1=1-sum((qsimf$qtot-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
   legend("topleft",inset=0,legend=bquote("Efficiency D-model ="~.(signif(eff1,digit=2))),cex=1.3)
   title("Scatterplot D-model predicted versus observed data")
 
@@ -405,13 +411,13 @@ if(NSeff==T)
     return()
   }
   qsimf$qtot[qsimf$qtot>(max(qoss)*2)]=max(qoss)*2
-  eff1=1-sum((qsimf$qtot-qoss)^2)/sum((qoss-mean(qoss))^2)
+  eff1=1-sum((qsimf$qtot-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
   return(eff1)
   } else if(bluecat==T)
   {
   if(is.null(qoss)==F) 
     {
-    eff=1-sum((medpred-qoss)^2)/sum((qoss-mean(qoss))^2)
+    eff=1-sum((medpred-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
     return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,medpred=medpred,infpred=infpred,suppred=suppred,effsmodel=eff))
     } else
     {
@@ -421,7 +427,7 @@ if(NSeff==T)
   else
     {if(is.null(qoss)==F)
       {
-      eff1=1-sum((qsimf$qtot-qoss)^2)/sum((qoss-mean(qoss))^2)
+      eff1=1-sum((qsimf$qtot-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
       return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,effdmodel=eff1))
       } else
       {

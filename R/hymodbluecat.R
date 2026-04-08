@@ -418,20 +418,20 @@ if(NSeff==T)
   if(is.null(qoss)==F) 
     {
     eff=1-sum((medpred-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
-    return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,medpred=medpred,infpred=infpred,suppred=suppred,effsmodel=eff))
+    return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,aet = qsimf$evapt, medpred=medpred,infpred=infpred,suppred=suppred,effsmodel=eff))
     } else
     {
-    return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,medpred=medpred,infpred=infpred,suppred=suppred))
+    return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,aet = qsimf$evapt, medpred=medpred,infpred=infpred,suppred=suppred))
     }
   }
   else
     {if(is.null(qoss)==F)
       {
       eff1=1-sum((qsimf$qtot-qoss)^2, na.rm = T)/sum((qoss-mean(qoss, na.rm = T))^2, na.rm = T)
-      return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,effdmodel=eff1))
+      return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,aet = qsimf$evapt, effdmodel=eff1))
       } else
       {
-      return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot))
+      return(list(q_2=qsimf$qt2,q_1=qsimf$qt1,q_tot=qsimf$qtot,aet = qsimf$evapt))
       }
     }
 }
